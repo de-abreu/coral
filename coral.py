@@ -30,18 +30,23 @@ WIDTH, HEIGHT = 800, 800     # Game screen dimensions.
 
 GRID_SIZE = 50               # Square grid size.
 
-HEAD_COLOR      = "#00aa00"  # Color of the snake's head.
-DEAD_HEAD_COLOR = "#4b0082"  # Color of the dead snake's head.
-TAIL_COLOR      = "#00ff00"  # Color of the snake's tail.
-APPLE_COLOR     = "#aa0000"  # Color of the apple.
-ARENA_COLOR     = "#202020"  # Color of the ground.
-GRID_COLOR      = "#3c3c3b"  # Color of the grid lines.
-SCORE_COLOR     = "#ffffff"  # Color of the scoreboard.
-MESSAGE_COLOR   = "#808080"  # Color of the game-over message.
+HEAD_COLOR             = "#00aa00"     # Color of the snake's head.
+DEAD_HEAD_COLOR        = "#4b0082"     # Color of the dead snake's head.
+TAIL_COLOR             = "#00ff00"     # Color of the snake's tail.
+APPLE_COLOR            = "#aa0000"     # Color of the apple.
+ARENA_COLOR            = "#202020"     # Color of the ground.
+GRID_COLOR             = "#3c3c3b"     # Color of the grid lines.
+SCORE_COLOR            = "#ffffff"     # Color of the scoreboard.
+SCORE_BG_COLOR         = "#1a1a1a"     # Color of the scoreboard background.
+SCORE_HEIGHT           = 100           # Height of the scoreboard.
+MESSAGE_COLOR          = "#808080"     # Color of the game-over message.
+HEIGHT_OFFSET          = SCORE_HEIGHT  # Height between the top of the screen and the game area.
+HEIGHT_OFFSET_BG_COLOR = "#3b0008"     # Background color of the gap.
 
 WINDOW_TITLE    = "Coral"  # Window title.
 
 CLOCK_TICKS     = 7         # How fast the snake moves.
+
 
 ##
 ## Game implementation.
@@ -61,7 +66,12 @@ SMALL_FONT = pygame.font.Font("assets/font/GetVoIP-Grotesque.ttf", int(WIDTH/20)
 
 pygame.display.set_caption(WINDOW_TITLE)
 
+INCREASE_HEIGHT_OFFSET = pygame.USEREVENT+1
+pygame.time.set_timer(INCREASE_HEIGHT_OFFSET, 3000)
+offset_direction = 0
+
 game_on = 1
+
 
 ## This function is called when the snake dies.
 
@@ -101,7 +111,7 @@ class Snake:
 
         # Dimension of each snake segment.
 
-        self.x, self.y = GRID_SIZE, GRID_SIZE
+        self.x, self.y = GRID_SIZE, GRID_SIZE+HEIGHT_OFFSET
 
         # Initial direction
         # xmov :  -1 left,    0 still,   1 right
@@ -125,10 +135,10 @@ class Snake:
     # This function is called at each loop interation.
 
     def update(self):
-        global apple
+        global apple, HEIGHT_OFFSET
 
         # Check for border crash.
-        if self.head.x not in range(0, WIDTH) or self.head.y not in range(0, HEIGHT):
+        if self.head.x not in range(0, WIDTH) or self.head.y not in range(HEIGHT_OFFSET, HEIGHT):
             self.alive = False
 
         # Check for self-bite.
@@ -143,8 +153,11 @@ class Snake:
             pygame.draw.rect(arena, DEAD_HEAD_COLOR, snake.head)
             center_prompt("Game Over", "Press to restart")
 
+            # Reset screen size
+            HEIGHT_OFFSET = SCORE_HEIGHT
+
             # Respan the head
-            self.x, self.y = GRID_SIZE, GRID_SIZE
+            self.x, self.y = GRID_SIZE, GRID_SIZE+HEIGHT_OFFSET
             self.head = pygame.Rect(self.x, self.y, GRID_SIZE, GRID_SIZE)
 
             # Respan the initial tail
@@ -189,7 +202,7 @@ class Apple:
 
         # Pick a random position within the game arena
         self.x = int(random.randint(0, WIDTH)/GRID_SIZE) * GRID_SIZE
-        self.y = int(random.randint(0, HEIGHT)/GRID_SIZE) * GRID_SIZE
+        self.y = int(random.randint(HEIGHT_OFFSET, HEIGHT)/GRID_SIZE) * GRID_SIZE
 
         # Create an apple at that location
         self.rect = pygame.Rect(self.x, self.y, GRID_SIZE, GRID_SIZE)
@@ -208,12 +221,18 @@ class Apple:
 
 def draw_grid():
     for x in range(0, WIDTH, GRID_SIZE):
-        for y in range(0, HEIGHT, GRID_SIZE):
+        for y in range(0, SCORE_HEIGHT, GRID_SIZE):
+            rect = pygame.Rect(x, y, GRID_SIZE, GRID_SIZE)
+            pygame.draw.rect(arena, SCORE_BG_COLOR, rect)
+        for y in range(SCORE_HEIGHT, HEIGHT_OFFSET, GRID_SIZE):
+            rect = pygame.Rect(x, y, GRID_SIZE, GRID_SIZE)
+            pygame.draw.rect(arena, HEIGHT_OFFSET_BG_COLOR, rect)
+        for y in range(HEIGHT_OFFSET, HEIGHT, GRID_SIZE):
             rect = pygame.Rect(x, y, GRID_SIZE, GRID_SIZE)
             pygame.draw.rect(arena, GRID_COLOR, rect, 1)
 
 score = BIG_FONT.render("1", True, MESSAGE_COLOR)
-score_rect = score.get_rect(center=(WIDTH/2, HEIGHT/20+HEIGHT/30))
+score_rect = score.get_rect(center=(WIDTH/2, SCORE_HEIGHT/1.5))
 
 draw_grid()
 
@@ -235,6 +254,18 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+
+        # Screen gets smaller
+        if event.type == INCREASE_HEIGHT_OFFSET:
+            if game_on:
+                if HEIGHT_OFFSET > HEIGHT/2:
+                    offset_direction = 1
+                if HEIGHT_OFFSET < SCORE_HEIGHT+GRID_SIZE:
+                    offset_direction = 0
+                if offset_direction == 0:
+                    HEIGHT_OFFSET += 50
+                else:
+                    HEIGHT_OFFSET -= 50
 
           # Key pressed
         if event.type == pygame.KEYDOWN:
@@ -282,6 +313,10 @@ while True:
     if snake.head.x == apple.x and snake.head.y == apple.y:
         #snake.tail.append(pygame.Rect(snake.head.x, snake.head.y, GRID_SIZE, GRID_SIZE))
         snake.got_apple = True;
+        apple = Apple()
+
+    # If the apple is outside the game area, drop another one
+    elif apple.y < HEIGHT_OFFSET:
         apple = Apple()
 
 
